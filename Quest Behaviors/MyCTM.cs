@@ -37,6 +37,12 @@
 //          and their absolute coordinates constantly change even when the toon is not moving
 //          while standing on the platform.  Thus, the need for relative coordinates which are
 //          based relative to the platform origin, not the zone's origin.
+//      IgnoreCombat [optinal; Default: false]
+//          Will perform action although char is in combat. Could be useful for pulling
+//          together trash in low level dungeons on paths that might not be compatible with mesh.
+//      Next [optional; Default: 3]
+//          Next action will be perfomred this amount of distance before reached end point. Could be
+//          useful for creating custom flying paths without stop and fly movement.
 //
 #endregion
 
@@ -83,6 +89,8 @@ namespace Honorbuddy.Quest_Behaviors.MyCTM
                 DestinationName = GetAttributeAs<string>("DestName", false, ConstrainAs.StringNonEmpty, new[] { "Name" }) ?? "";
                 Destination = GetAttributeAsNullable<WoWPoint>("", true, ConstrainAs.WoWPointNonEmpty, null) ?? WoWPoint.Empty;
                 UseRelativeLocation = GetAttributeAsNullable<bool>("UseRelative", false, null, new[] { "useRelative" }) ?? false;
+                IgnoreCombat = GetAttributeAsNullable<bool>("IgnoreCombat", false, null, new[] { "ignoreCombat" }) ?? false;
+                Next = GetAttributeAsNullable<int>("Next", false, null, new[] { "next" }) ?? 3;
 
                 var upperLimitOnMovementTime = GetAttributeAsNullable<int>("UpperLimitOnMovementTime", false, ConstrainAs.Milliseconds, null)
                     ?? (5 * 60 * 1000); // five mins
@@ -140,6 +148,8 @@ namespace Honorbuddy.Quest_Behaviors.MyCTM
         private string DestinationName { get; set; }
         private WoWPoint OrigDestination { get; set; }
         private bool UseRelativeLocation { get; set; }
+        private bool IgnoreCombat { get; set; }
+        private int Next { get; set; }
         private TimeSpan UpperLimitOnMovementTime { get; set; }
         #endregion
 
@@ -195,7 +205,7 @@ namespace Honorbuddy.Quest_Behaviors.MyCTM
         protected override Composite CreateBehavior_CombatMain()
         {
             return new PrioritySelector(
-                new Decorator(context => !IsDone && !Me.IsActuallyInCombat,
+                new Decorator(context => !IsDone && (!Me.IsActuallyInCombat || IgnoreCombat),
                     new PrioritySelector(
 
                         // Update Location if relative coord is used...
@@ -237,7 +247,7 @@ namespace Honorbuddy.Quest_Behaviors.MyCTM
                         //     new Action(context => Navigator.NavigationProvider.StuckHandler.Unstick())),
 
                         // check if bot has reached the destination.
-                        new Decorator(context => Destination.DistanceSqr(Me.Location) <= (3 * 3),
+                        new Decorator(context => Destination.DistanceSqr(Me.Location) <= (Next * Next),
                             new Action(context =>
                                 {
                                     BehaviorDone(string.Format("Finished moving to {0}", DestinationName));
